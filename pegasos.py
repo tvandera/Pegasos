@@ -3,7 +3,7 @@
 
 import os
 import math
-import cPickle
+import pickle
 
 # There are two vector types available: special_vector
 # and normal_vector. Additional ones can be built as long
@@ -110,27 +110,27 @@ class gram_matrix(object):
 
     def save(self, filename):
         if os.path.isfile(filename):
-            overwrite = raw_input("A file with the name %s already exists. Would you like to Overwrite it? (y/n) " % filename)
+            overwrite = "n"
             if(overwrite.lower() == "y"):
                 print("Overwriting File %s" % filename)
             else:
-                print "Gram Matrix not Saved, as File with Same Name exists"
+                print("Gram Matrix not Saved, as File with Same Name exists")
                 return		
         with open(filename, "wb") as fh:
-            cPickle.dump(self.data, fh)
+            pickle.dump(self.data, fh)
 
     def load(self, filename, force = False):
         if os.path.isfile(filename):
             with open(filename, "rb") as fh:
                 try:
-                    loadeddata = cPickle.load(fh)
+                    loadeddata = pickle.load(fh)
                     if(force):
                         self.data = loadeddata
                         return True
                     elif self.verify(loadeddata): 
                         self.data = loadeddata
                         return True
-                    else: print "The Format of the Data was Illegal, Please Rebuild A Gram Matrix and Resave It."
+                    else: print("The Format of the Data was Illegal, Please Rebuild A Gram Matrix and Resave It.")
                 except EOFError: return False
         return False
 
@@ -149,14 +149,14 @@ class gram_matrix(object):
 
     def clear(self): self.data = dict()
 
-    def query(self, (i,j)):
+    def query(self, i,j):
         if (i>j): return self.data[(j,i)]
         else: return self.data[(i,j)]
 
     def get(self, numberofsamples, jvalue):
         vector = special_vector()
         for i in range(numberofsamples):
-            vector.add(i, self.query((i, jvalue)))
+            vector.add(i, self.query(i, jvalue))
         return vector
 		
 
@@ -182,13 +182,13 @@ def read(filename):
     vectors = list()
     classlabels = list()
     with open(filename) as fh:		
-        for linenum, line in enumerate(fh.xreadlines()):
+        for linenum, line in enumerate(fh.readlines()):
             data = line.split()
             if(len(data)):
                 linedictionary = special_vector()
                 classlabel = data[0]
                 if(classlabel != "1" and classlabel != "-1"):
-                    print "Skipping Line %d in File %s due to Illegal Class Label, Must be either 1, or -1" % (linenum, filename)
+                    print("Skipping Line %d in File %s due to Illegal Class Label, Must be either 1, or -1" % (linenum, filename))
                     continue
                 classlabel = int(classlabel)
                 for datapoint in data[1:]:
@@ -197,8 +197,8 @@ def read(filename):
                         component = int(component)
                         value = float(value)		
                     except ValueError as error:
-                        print "Skipping Line Line %d in File %s due to Incorrectly formatted Datapoint '%s'. Must be of the Form Component:Value, such as 27:.0201, where component is an integer and value any floating point number." % (linenum, filename, datapoint)
-                        print "Recieved Error", error
+                        print("Skipping Line Line %d in File %s due to Incorrectly formatted Datapoint '%s'. Must be of the Form Component:Value, such as 27:.0201, where component is an integer and value any floating point number." % (linenum, filename, datapoint))
+                        print("Recieved Error", error)
                         continue
                     linedictionary.add(component,value)
                 vectors.append(linedictionary)
@@ -258,7 +258,7 @@ def main(TrainingFilename, TestingFilename, Kernel, Iterations, eta = .001, Gram
 
     # Testing Code
     #for sample, label in zip(TrainingSamples, TrainingLabels):
-    #	print sample, len(sample), label
+    #	print(sample, len(sample), label)
     #input("Continue?")
 
     TestingSamples, TestingLabels=read(TestingFilename)
@@ -272,7 +272,7 @@ def main(TrainingFilename, TestingFilename, Kernel, Iterations, eta = .001, Gram
     print("Computing Gram Matrix")
     GramMatrix = gram_matrix()
     if(GramFile):
-        if GramMatrix.load(GramFile, force = True): print "Loaded Gram Matrix Successfully"
+        if GramMatrix.load(GramFile, force = True): print("Loaded Gram Matrix Successfully")
         else:
             GramMatrix.compute(TrainingSamples, Kernel)
             print("Saving New Gram Matrix")
@@ -296,7 +296,7 @@ def main(TrainingFilename, TestingFilename, Kernel, Iterations, eta = .001, Gram
 
     if(SupportVecFile and isinstance(SupportVecFile, str)):
         with open(SupportVecFile, "wb") as fh:
-            cPickle.dump((Coeffecients, SupportVectors), fh)
+            pickle.dump((Coeffecients, SupportVectors), fh)
 
     # Run Tests using the Support Vectors For Classification
     error=RunTests(Coeffecients, SupportVectors, Kernel, TestingSamples, TestingLabels)
@@ -308,7 +308,7 @@ def Pegasos(TrainingSamples, TrainingLabels, eta, Iterations, GramMatrix):
     a = special_vector().zeros(samples)
     time = 1
     for i in range(Iterations):
-        print "Iteration %d Started" % i
+        print("Iteration %d Started" % i)
         for tau in range(len(TrainingSamples)):
             wx = special_vector.dotproduct(a, GramMatrix.get(len(TrainingSamples), tau))
             a.scalarproduct((1-1/time))
