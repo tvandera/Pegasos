@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # Implementation of Pegasos Algorithm
 # Described in Paper: http://www.cs.huji.ac.il/~shais/papers/ShalevSiSrCo10.pdf
 
@@ -11,18 +12,28 @@ from sklearn.datasets import load_svmlight_file
 # Primary Computation of Gram Matrix can be done in Parallel, as operations
 # are independent one another
 class gram_matrix(object):
-    def __init__(self, TrainingSamples, Kernel):
-        dim = TrainingSamples.shape[0]
-        self.data = np.empty((dim,dim))
-        for i in range(dim):
-            for j in range(dim):		
-                self.data[i,j] = Kernel(TrainingSamples[i], TrainingSamples[j])
+    def __init__(self, TrainingSamples, Kernel, pre_compute):
+        self.samples = TrainingSamples
+        self.kernel = Kernel
+        self.pre_computed = pre_compute
+        if pre_compute:
+            self.data = np.empty((dim,dim))
+            for i in range(dim):
+                self.data[j,:] = self.compute_row(i)
 
     def dim(self):
-        return self.data.shape[0]
+        return self.samples.shape[0]
 
-    def row(self, jvalue):
-        return self.data[jvalue,:]
+    def compute_row(self, i):
+        row = np.empty(self.dim())
+        for j in range(self.dim()):		
+            row[j] = self.kernel(self.samples[i], self.samples[j])
+        return row
+
+    def row(self, i):
+        if self.pre_computed:
+            return self.data[i,:]
+        return self.compute_row(i)
 		
 
 
@@ -31,14 +42,15 @@ class gram_matrix(object):
 def radial_basis(gamma):
     assert gamma>0 , "Parameter in Radial Basis function is not a float > 0"
     def function(vector1, vector2):
+        from scipy.sparse.linalg import norm
         new_vector = vector1 - vector2
-        return math.exp(-1 * gamma * new_vector.norm() ** 2)
+        return math.exp(-1 * gamma * norm(new_vector) ** 2)
     return function
 
 def homogeneous_polynomial(degree):
     assert isinstance(degree, int) and degree>0, "Parameter in Homogeneous Polynomial function is not an integer > 0" 
     def function(vector1, vector2):
-        value = vector1.dot(vector2.transpose()).data[0]
+        value = vector1.dot(vector2.transpose()).sum()
         return value ** degree
     return function
 
@@ -65,16 +77,12 @@ def hyperbolic_tangent(kappa, c):
 # Kernel            -   Kernel Funtion                      - Function Returing Integer Type
 # niter             -   Iterations for Gradient Descent     - Integer
 # Eta               -   Learning Rate                       - Float
-# GramFile          -   Filename to Save the Gram Matrix    - String
-#                   -   This is optional, but will speed
-#                   -   up future classification since
-#                   -   the computation of the matrix is costly
 # SupportVecFile    -   File to Save Support Vectors. Saving,
 #                   -   is useful, since it can be a costly operation
 #                   -   to constantly find the support vectors
-def main(TrainingFilename, TestingFilename, Kernel, niter, eta = .001, GramFile = "", SupportVecFile = ""):
+def main(TrainingFilename, TestingFilename, Kernel, niter, compute_kernel_matrix = True, eta = .001, SupportVecFile = ""):
     TrainingSamples, TrainingLabels=load_svmlight_file(TrainingFilename)
-    print("Loaded %d Training Samples" % (TrainingSamples.shape[0]))
+    print("Loaded %d Training Samples with %d features each" % (TrainingSamples.shape))
 
     TestingSamples, TestingLabels=load_svmlight_file(TestingFilename)
     print("Loaded %d Testing Samples" % (TestingSamples.shape[0]))
@@ -85,7 +93,7 @@ def main(TrainingFilename, TestingFilename, Kernel, niter, eta = .001, GramFile 
     # Matrix is a generally costly operation
 	
     print("Computing Gram Matrix")
-    GramMatrix = gram_matrix(TrainingSamples, Kernel)
+    GramMatrix = gram_matrix(TrainingSamples, Kernel, compute_kernel_matrix)
 
     print("Computed Gram Matrix (%d x %d)" % (GramMatrix.dim(),GramMatrix.dim()))
 
@@ -144,6 +152,16 @@ def RunTests(a, SV, Kernel, TestingSamples, TestingLabels):
     return errors
 
 if __name__ == "__main__":
-    trainingfile = "training"
-    testingfile = "testing"
-    main(trainingfile, testingfile, linear(), 5, GramFile = "GramMatrix", SupportVecFile = "Supports")
+
+    import argparse
+    parser = argparse.ArgumentParser(description="""Implementation of Pegasos Algorithm
+    Described in Paper: http://www.cs.huji.ac.il/~shais/papers/ShalevSiSrCo10.pdf""")
+
+    parser.add_argument('--train',  metavar='FILE', dest='train_file',  help='Train Data SVM', required=True)
+    parser.add_argument('--test',   metavar='FILE', dest='test_file',   help='Test Data')
+    parser.add_argument('--iter',   metavar='NUM', dest='iter',         help='Number of iterations', default = 5)
+    parser.add_argument('--output', metavar='FILE', dest='output_file', help='Output Model')
+    args = parser.parse_args()
+    print(args)
+
+    main(args.train_file, args.test_file, radial_basis(1.0), args.iter, False, SupportVecFile = args.output_file)
