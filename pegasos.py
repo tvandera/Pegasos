@@ -106,56 +106,41 @@ class traditional_vector(list):
 # Primary Computation of Gram Matrix can be done in Parallel, as operations
 # are independent one another
 class gram_matrix(object):
-    def __init__(self): self.data = dict()
+    def __init__(self):
+        self.clear()
 
     def save(self, filename):
-        if os.path.isfile(filename):
-            overwrite = "n"
-            if(overwrite.lower() == "y"):
-                print("Overwriting File %s" % filename)
-            else:
-                print("Gram Matrix not Saved, as File with Same Name exists")
-                return		
+        assert self.dim > 0
         with open(filename, "wb") as fh:
-            pickle.dump(self.data, fh)
+            pickle.dump((self.dim, self.data), fh)
 
     def load(self, filename, force = False):
         if os.path.isfile(filename):
             with open(filename, "rb") as fh:
-                try:
-                    loadeddata = pickle.load(fh)
-                    if(force):
-                        self.data = loadeddata
-                        return True
-                    elif self.verify(loadeddata): 
-                        self.data = loadeddata
-                        return True
-                    else: print("The Format of the Data was Illegal, Please Rebuild A Gram Matrix and Resave It.")
-                except EOFError: return False
-        return False
-
-    def verify(self, data):
-        if not isinstance(data, dict): return False
-        for key in data.keys():
-            if not isinstance(key, tuple): return False
-            if len(key) != 2: return False
-            if not isinstance(data[key], float): return False
-        return True
+                (self.dim, self.data) = pickle.load(fh)
 
     def compute(self, TrainingSamples, Kernel):
-        for i in range(len(TrainingSamples)):
-            for j in range(i, len(TrainingSamples)):		
+        self.dim = len(TrainingSamples)
+        assert self.dim > 0
+        for i in range(self.dim):
+            for j in range(i, self.dim):		
                 self.data[(i,j)] = Kernel(TrainingSamples[i], TrainingSamples[j])
 
-    def clear(self): self.data = dict()
+    def clear(self):
+        self.data = dict()
+        self.dim = -1
 
-    def query(self, i,j):
+    def query(self,i,j):
+        assert i<self.dim
+        assert j<self.dim
         if (i>j): return self.data[(j,i)]
         else: return self.data[(i,j)]
 
-    def get(self, numberofsamples, jvalue):
+    # sum of distances between each value and value j
+    def sum(self, jvalue):
+        assert self.dim > 0
         vector = special_vector()
-        for i in range(numberofsamples):
+        for i in range(self.dim):
             vector.add(i, self.query(i, jvalue))
         return vector
 		
@@ -254,7 +239,7 @@ def hyperbolic_tangent(kappa, c):
 #                   -   to constantly find the support vectors
 def main(TrainingFilename, TestingFilename, Kernel, Iterations, eta = .001, GramFile = "", SupportVecFile = ""):
     TrainingSamples, TrainingLabels=read(TrainingFilename)
-    print("Loaded Training Samples")
+    print("Loaded %d Training Samples" % (len(TrainingSamples)))
 
     # Testing Code
     #for sample, label in zip(TrainingSamples, TrainingLabels):
@@ -262,7 +247,7 @@ def main(TrainingFilename, TestingFilename, Kernel, Iterations, eta = .001, Gram
     #input("Continue?")
 
     TestingSamples, TestingLabels=read(TestingFilename)
-    print("Loaded Testing Samples")
+    print("Loaded %d Testing Samples" % (len(TestingSamples)))
 
     # Once we compute the Gram Matrix Once, We may
     # Pickle it so that we don't have to recompute
@@ -271,14 +256,9 @@ def main(TrainingFilename, TestingFilename, Kernel, Iterations, eta = .001, Gram
 	
     print("Computing Gram Matrix")
     GramMatrix = gram_matrix()
-    if(GramFile):
-        if GramMatrix.load(GramFile, force = True): print("Loaded Gram Matrix Successfully")
-        else:
-            GramMatrix.compute(TrainingSamples, Kernel)
-            print("Saving New Gram Matrix")
-            GramMatrix.save(GramFile)
-    else: GramMatrix.compute(TrainingSamples, Kernel)
-    print("Computed Gram Matrix")
+    GramMatrix.compute(TrainingSamples, Kernel)
+
+    print("Computed Gram Matrix (%d x %d)" % (GramMatrix.dim,GramMatrix.dim))
 
     # Testing Code
     #for vecnumi in range(len(TrainingSamples)):
@@ -310,7 +290,7 @@ def Pegasos(TrainingSamples, TrainingLabels, eta, Iterations, GramMatrix):
     for i in range(Iterations):
         print("Iteration %d Started" % i)
         for tau in range(len(TrainingSamples)):
-            wx = special_vector.dotproduct(a, GramMatrix.get(len(TrainingSamples), tau))
+            wx = special_vector.dotproduct(a, GramMatrix.sum(tau))
             a.scalarproduct((1-1/time))
             if(TrainingLabels[tau]*wx < 1):
                 a.setcomponent(tau, a.getcomponent(tau) + float(TrainingLabels[tau])/float(eta*time))
