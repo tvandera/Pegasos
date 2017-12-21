@@ -13,7 +13,10 @@ from sklearn.datasets import load_svmlight_file
 class gram_matrix(object):
     def __init__(self, TrainingSamples, Kernel):
         dim = TrainingSamples.shape[0]
-        self.data = np.fromfunction(Kernel,(dim,dim))
+        self.data = np.empty((dim,dim))
+        for i in range(dim):
+            for j in range(dim):		
+                self.data[i,j] = Kernel(TrainingSamples[i], TrainingSamples[j])
 
     def dim(self):
         return self.data.shape[0]
@@ -35,7 +38,7 @@ def radial_basis(gamma):
 def homogeneous_polynomial(degree):
     assert isinstance(degree, int) and degree>0, "Parameter in Homogeneous Polynomial function is not an integer > 0" 
     def function(vector1, vector2):
-        value = vector1.dot(vector2.transpose())		
+        value = vector1.dot(vector2.transpose()).data[0]
         return value ** degree
     return function
 
@@ -60,7 +63,7 @@ def hyperbolic_tangent(kappa, c):
 # TrainingFilename  -   Name of File Input                  - String
 # TestingFilename   -   Name of File Input                  - String
 # Kernel            -   Kernel Funtion                      - Function Returing Integer Type
-# niter        -   niter for Gradient Descent     - Integer
+# niter             -   Iterations for Gradient Descent     - Integer
 # Eta               -   Learning Rate                       - Float
 # GramFile          -   Filename to Save the Gram Matrix    - String
 #                   -   This is optional, but will speed
@@ -88,7 +91,7 @@ def main(TrainingFilename, TestingFilename, Kernel, niter, eta = .001, GramFile 
 
     # Apply Gradient Descent SVM Solver and Generate
     # Necessary Support Vectors
-    print("Computing %d niter of Pegasos" % niter)
+    print("Computing %d Iteration of Pegasos" % niter)
     Coeffecients, SupportVectors=Pegasos(TrainingSamples, TrainingLabels, eta, niter, GramMatrix)
     print('Completed Pegasos')
 
@@ -107,16 +110,17 @@ def Pegasos(TrainingSamples, TrainingLabels, eta, niter, GramMatrix):
     time = 1
     for i in range(niter):
         print("Iteration %d Started" % i)
-        for tau in range(nsamples):
-            wx = a.dot(GramMatrix.row(tau))
-            a *= (1-1/time)
+        for t in range(nsamples):
+            wx = a.dot(GramMatrix.row(t))
+            a *= float(1-1/time)
             # if mispredicted
-            if(TrainingLabels[tau]*wx < 1):
-                a[tau] += float(TrainingLabels[tau])/float(eta*time)
-        time += 1
+            if(TrainingLabels[t]*wx < 1):
+                a[t] += float(TrainingLabels[t])/float(eta*time)
+            time += 1
 
     SV = TrainingSamples[a != .0]
     a = a[a!=.0]
+    print("%d support vectors" % len(a))
     return a, SV
 
 
