@@ -34,7 +34,6 @@ class gram_matrix(object):
         if self.pre_computed:
             return self.data[i,:]
         return self.compute_row(i)
-		
 
 
 # These are Essentially Wrappers with Paramaters
@@ -100,7 +99,8 @@ def main(TrainingFilename, TestingFilename, Kernel, niter, compute_kernel_matrix
     # Apply Gradient Descent SVM Solver and Generate
     # Necessary Support Vectors
     print("Computing %d Iteration of Pegasos" % niter)
-    Coeffecients, SupportVectors=Pegasos(TrainingSamples, TrainingLabels, eta, niter, GramMatrix)
+    #Coeffecients, SupportVectors=KernelPegasos(TrainingSamples, TrainingLabels, eta, niter, GramMatrix)
+    Coeffecients, SupportVectors=LinearPegasos(TrainingSamples, TrainingLabels, eta, niter)
     print('Completed Pegasos')
 
     if(SupportVecFile and isinstance(SupportVecFile, str)):
@@ -112,7 +112,7 @@ def main(TrainingFilename, TestingFilename, Kernel, niter, compute_kernel_matrix
     print("%d errors out of %d" % (error, TestingSamples.shape[0]))
 
 
-def Pegasos(TrainingSamples, TrainingLabels, eta, niter, GramMatrix):
+def KernelPegasos(TrainingSamples, TrainingLabels, eta, niter, GramMatrix):
     nsamples = TrainingSamples.shape[0]
     a = np.zeros(nsamples)
     time = 1
@@ -131,6 +131,27 @@ def Pegasos(TrainingSamples, TrainingLabels, eta, niter, GramMatrix):
     print("%d support vectors" % len(a))
     return a, SV
 
+
+def LinearPegasos(TrainingSamples, TrainingLabels, eta, niter):
+    nsamples = TrainingSamples.shape[0]
+    nfeat = TrainingSamples.shape[1]
+    a = np.zeros(nfeat)
+    time = 1
+    for i in range(niter):
+        print("Iteration %d Started" % i)
+        for t in range(nsamples):
+            sample = TrainingSamples.getrow(t)
+            wx = sample.dot(a)
+            a *= float(1-1/time)
+            # if mispredicted
+            if(TrainingLabels[t]*wx < 1):
+                a[t] += float(TrainingLabels[t])/float(eta*time)
+            time += 1
+
+    SV = TrainingSamples[a != .0]
+    a = a[a!=.0]
+    print("%d support vectors" % len(a))
+    return a, SV
 
 # Assigns a Class Label to a Particular Sample
 def Predictor(a, SV, Kernel, Sample):
@@ -164,4 +185,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(args)
 
-    main(args.train_file, args.test_file, radial_basis(1.0), args.iter, False, SupportVecFile = args.output_file)
+    main(args.train_file, args.test_file, linear(), int(args.iter), False, SupportVecFile = args.output_file)
