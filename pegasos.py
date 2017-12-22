@@ -128,11 +128,11 @@ def KernelPegasos(TrainingSamples, TrainingLabels, eta, niter, GramMatrix):
     for i in range(niter):
         print("Iteration %d Started" % i)
         for t in range(nsamples):
-            wx = a.dot(GramMatrix.row(t))
+            label = TrainingLabels[t]
+            wx = a.dot(GramMatrix.row(t)).sum()
             a *= float(1-1/time)
             # if mispredicted
-            pred = wx.dot(TrainingLabels[t]).sum()
-            if(pred < 1):
+            if(wx*label < 1):
                 a[0,t] += float(TrainingLabels[t])/float(eta*time)
             time += 1
 
@@ -151,11 +151,11 @@ def LinearPegasos(TrainingSamples, TrainingLabels, eta, niter):
         print("Iteration %d Started" % i)
         for t in range(nsamples):
             sample = TrainingSamples.getrow(t)
-            wx = sample.dot(a.transpose())
+            label = TrainingLabels[t]
+            wx = sample.dot(a.transpose()).sum()
             a *= float(1-1/time)
-            pred = wx.dot(TrainingLabels[t]).sum()
             # if mispredicted
-            if(pred < 1):
+            if(wx * label < 1):
                 a[0,t] += float(TrainingLabels[t])/float(eta*time)
             time += 1
 
